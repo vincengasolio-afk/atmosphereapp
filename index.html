@@ -1,54 +1,65 @@
-export default {
-  async fetch(request) {
-    // Configurazione Header CORS per permettere al sito di comunicare con il worker
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    };
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ATMOSPHERE ELITE AGENCY</title>
+    <style>
+        body { background: #000; color: #fff; font-family: 'Segoe UI', sans-serif; text-align: center; padding: 40px; }
+        .container { max-width: 600px; margin: auto; border: 1px solid #333; padding: 20px; border-radius: 15px; }
+        button { width: 80%; padding: 15px; margin: 10px; cursor: pointer; border: none; border-radius: 8px; font-weight: bold; transition: 0.3s; }
+        .lugo { background: #f040c0; color: white; } /* Rosa Lugo */
+        .lugo:hover { background: #d030a0; }
+        .pix { background: #40c0f0; color: white; } /* Blu Pixverse */
+        .pix:hover { background: #30a0d0; }
+        #status { margin-top: 20px; color: #aaa; font-style: italic; }
+    </script>
+</head>
+<body>
 
-    // Risposta immediata per le richieste di controllo (Pre-flight)
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders });
-    }
+    <div class="container">
+        <h1>Atmosphere Elite Agency</h1>
+        <p>Seleziona il formato di esportazione:</p>
+        
+        <button class="lugo" onclick="startGeneration('lugo')">READY FOR LUGO (10s)</button>
+        <button class="pix" onclick="startGeneration('pixverse')">READY FOR PIXVERSE (8s)</button>
 
-    const url = new URL(request.url);
-    
-    // Costruiamo l'URL di destinazione verso MiniMax
-    // Se chiami il worker senza path, di default va su video_generation
-    let apiPath = url.pathname;
-    if (apiPath === '/' || apiPath === '/proxy') {
-      apiPath = '/v1/video_generation';
-    }
-    
-    const targetUrl = 'https://api.minimax.io' + apiPath + url.search;
+        <div id="status">In attesa di comando...</div>
+    </div>
 
-    try {
-      const bodyText = (request.method === 'POST') ? await request.text() : null;
+    <script>
+        async function startGeneration(type) {
+            const statusDiv = document.getElementById('status');
+            const duration = (type === 'lugo') ? 10 : 8; // 10s per Lugo, 8s per Pixverse
+            
+            statusDiv.innerHTML = `⏳ Generazione avviata per <b>${type.toUpperCase()}</b>...<br>Durata impostata: ${duration} secondi.`;
 
-      const response = await fetch(targetUrl, {
-        method: request.method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': request.headers.get('Authorization') || '',
-        },
-        body: bodyText
-      });
+            // L'URL del tuo Worker Cloudflare
+            const workerUrl = "https://astro-blog-starter-template.vincengasolio.workers.dev/v1/video_generation";
 
-      const data = await response.text();
+            try {
+                const response = await fetch(workerUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': 'Bearer INSERISCI_TUA_API_KEY' // Sostituisci con la tua chiave MiniMax
+                    },
+                    body: JSON.stringify({
+                        model: "video-01",
+                        prompt: "A professional cinematic scene, high quality...", // Aggiungi qui il tuo prompt di base
+                        duration: duration 
+                    })
+                });
 
-      return new Response(data, {
-        status: response.status,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      });
-    } catch (err) {
-      return new Response(JSON.stringify({ error: "Errore del Proxy: " + err.message }), {
-        status: 500,
-        headers: corsHeaders
-      });
-    }
-  }
-};
+                const data = await response.json();
+                console.log("Risposta API:", data);
+                statusDiv.innerHTML = "✅ Richiesta inviata con successo! Controlla la console per il tracking ID.";
+            } catch (error) {
+                statusDiv.innerHTML = "❌ Errore durante la connessione al proxy.";
+                console.error(error);
+            }
+        }
+        // Il blocco Service Worker/Blob è stato rimosso per evitare errori di sicurezza.
+    </script>
+</body>
+</html>
